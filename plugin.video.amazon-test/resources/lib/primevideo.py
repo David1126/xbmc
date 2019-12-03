@@ -488,9 +488,21 @@ class PrimeVideo(Singleton):
             # Log('Encoded PrimeVideo URL: {}'.format(url), Log.DEBUG)
             item = xbmcgui.ListItem(title)
 
+            # Actions
+            actions = []
             if bCanRefresh and (0 < len(itemPathURI)):
                 # Log('Encoded PrimeVideo refresh URL: pv/refresh/{}'.format(itemPathURI), Log.DEBUG)
-                item.addContextMenuItems([('Refresh', 'RunPlugin({}pv/refresh/{})'.format(self._g.pluginid, itemPathURI))])
+                actions.append(('Refresh', 'RunPlugin({}pv/refresh/{})'.format(self._g.pluginid, itemPathURI)))
+
+            if 'actions' in entry:
+                for a in entry['actions']:
+                    # Log('Encoded PrimeVideo actions "{}" URL: pv/action{}'.format(a['title'],a['url']), Log.DEBUG)
+                    actions.append((a['title'], 'RunPlugin({}pv/action{})'.format(self._g.pluginid, a['url'])))
+
+            if 0 < len(actions):
+                item.addContextMenuItems(actions)
+
+            folder = True
 
             # In case of tv shows find the oldest season and apply its art
             try:
@@ -626,6 +638,11 @@ class PrimeVideo(Singleton):
             for r in refreshes:
                 Log('Refresh params: {}'.format(r))
                 self._LazyLoad(r[0], r[1], r[2])
+
+    def Action(self, path, parm):
+        """ Provides actions functionality """
+
+        r = getURL(self._FQify(path), silent=True, useCookie=True, rjson=False, postdata=parm)
 
     def _LazyLoad(self, obj, breadcrumb=None, bCacheRefresh=False):
         """ Loader and parser of all the PrimeVideo.com queries """
@@ -958,6 +975,15 @@ class PrimeVideo(Singleton):
                 for gti in state['trailer']:
                     if 'trailer' not in self._videodata[gti]:
                         self._videodata[gti]['trailer'] = True
+                        bUpdated = True
+
+            if 'watchlist' in state and state['watchlist']:
+                for gti, c in state['watchlist'].items():
+                    if 'query' in c['endpoint']:
+                        query = ''
+                        query += '&'.join(['{}={}'.format(k, v) for k, v in c['endpoint']['query'].items()])
+                        self._videodata[gti]['actions'] = [{'title': c['text']['string'],
+                                                            'url': '{}?{}'.format(c['endpoint']['partialURL'], query)}]
                         bUpdated = True
 
             return bUpdated
